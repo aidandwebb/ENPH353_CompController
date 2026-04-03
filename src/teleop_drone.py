@@ -31,6 +31,7 @@ Controls:
         return key
 
     def run(self):
+        target_height = 0
         try:
             while not rospy.is_shutdown():
                 key = self.get_key()
@@ -42,13 +43,13 @@ Controls:
                 elif key == 's': self.cmd.linear.x = -1.0
                 elif key == 'a': self.cmd.linear.y = 1.0
                 elif key == 'd': self.cmd.linear.y = -1.0
-                elif key == 'r': self.cmd.linear.z = 1.0
-                elif key == 'f': self.cmd.linear.z = -1.0
+                elif key == 'r': target_height += 0.1
+                elif key == 'f': target_height -= 0.1
                 elif key == 'q': self.cmd.angular.z = 1.0
                 elif key == 'e': self.cmd.angular.z = -1.0
                 elif key == 'x': self.cmd = Twist()
                 elif key == '\x03': break
-
+                self.cmd.linear.z = target_height
                 self.pub.publish(self.cmd)
                 self.rate.sleep()
 
