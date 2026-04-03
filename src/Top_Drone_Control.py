@@ -25,6 +25,7 @@ class DroneController:
 
         self.roll = 0.0
         self.pitch = 0.0
+        self.yaw = 0.0
         self.ang_vel = np.zeros(3, dtype=np.float32)
         self.R = np.eye(3, dtype=np.float32)
 
@@ -48,11 +49,16 @@ class DroneController:
         self.x_error_dot = 0.0
         self.y_error_dot = 0.0
         self.map_angle = 0
+        self.x_error_int = 0.0
+        self.y_error_int = 0.0
+        self.xy_int_limit = 4000.0
+        self.xy_deadband = 8.0
+        self.max_xy_force = 25.0
+        self.k_xy_p = 0.3
+        self.k_xy_d = 0.4
+        self.k_xy_i = 0.002
 
-        self.k_xy_p = 0.050
-        self.k_xy_d = 0.075
-
-        # Altitude PID constants (45):
+        # Altitude PD constants (1 ,4):
         self.kz_p = 1.0
         self.kz_d = 4.0
         self.depth_grid_n = 3
@@ -65,7 +71,7 @@ class DroneController:
         self.k_pitch = 1.0
         self.k_rollrate = 0.2
         self.k_pitchrate = 0.2
-        self.k_yaw = 1.0
+        self.k_yaw = -1.0
         self.k_yawrate = 0.25
 
         self.rate = rospy.Rate(50)
@@ -139,7 +145,8 @@ class DroneController:
         q = msg.orientation
         quat = [q.x, q.y, q.z, q.w]
         self.R = tft.quaternion_matrix(quat)[:3, :3].astype(np.float32)
-        self.roll, self.pitch, _ = tft.euler_from_quaternion(quat)
+        self.roll, self.pitch, self.yaw = tft.euler_from_quaternion(quat)
+        self.map_angle = (np.pi /2) + self.yaw
         self.ang_vel[:] = [
             msg.angular_velocity.x,
             msg.angular_velocity.y,
@@ -214,7 +221,7 @@ class DroneController:
             torque_body = np.array([
                 -self.k_roll * self.roll - self.k_rollrate * self.ang_vel[0],
                 -self.k_pitch * self.pitch - self.k_pitchrate * self.ang_vel[1],
-                self.k_yaw * 0 - self.k_yawrate * self.ang_vel[2]
+                self.k_yaw * self.map_angle - self.k_yawrate * self.ang_vel[2]
             ], dtype=np.float32)
 
             torque_world = self.R.dot(torque_body)
@@ -222,13 +229,34 @@ class DroneController:
             w.torque.x = float(torque_world[0])
             w.torque.y = float(torque_world[1])
             w.torque.z = float(torque_world[2])
+
+            # deadband so we do not integrate tiny vision noise
+            x_for_int = 0.0 if abs(self.x_error) < self.xy_deadband else self.x_error
+            y_for_int = 0.0 if abs(self.y_error) < self.xy_deadband else self.y_error
+
+            # leaky integrator: helps when wind state changes
+            leak = 0.995
+            self.x_error_int = leak * self.x_error_int + x_for_int * dt
+            self.y_error_int = leak * self.y_error_int + y_for_int * dt
+
+            self.x_error_int = float(np.clip(self.x_error_int, -self.xy_int_limit, self.xy_int_limit))
+            self.y_error_int = float(np.clip(self.y_error_int, -self.xy_int_limit, self.xy_int_limit))
             
             # image positive x is body -y and image y is body +x?
             force_body = np.array([
-                -self.k_xy_p * self.y_error - self.k_xy_d * self.y_error_dot,
-                -self.k_xy_p * self.x_error - self.k_xy_d * self.x_error_dot,
+                -self.k_xy_p * self.y_error
+                - self.k_xy_d * self.y_error_dot
+                - self.k_xy_i * self.y_error_int,
+
+                -self.k_xy_p * self.x_error
+                - self.k_xy_d * self.x_error_dot
+                - self.k_xy_i * self.x_error_int,
+
                 0.0
             ], dtype=np.float32)
+
+            force_body[0] = np.clip(force_body[0], -self.max_xy_force, self.max_xy_force)
+            force_body[1] = np.clip(force_body[1], -self.max_xy_force, self.max_xy_force)
 
             force_world = self.R.dot(force_body)
 
@@ -254,7 +282,7 @@ class DroneController:
 
             rospy.loginfo_throttle(
                 0.2,
-                f"alt={self.altitude} xerror={-self.y_error} y_error={self.x_error:.2f} z_error={z_err} "
+                f"alt={self.altitude} xerror={-self.y_error} y_error={self.x_error:.2f} angle={self.yaw:.3f}"
                 f"F=({w.force.x:.1f}, {w.force.y:.1f}, {w.force.z:.1f})"
             )
 
