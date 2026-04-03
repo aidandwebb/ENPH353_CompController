@@ -52,11 +52,11 @@ class DroneController:
         self.x_error_int = 0.0
         self.y_error_int = 0.0
         self.xy_int_limit = 4000.0
-        self.xy_deadband = 8.0
+        self.xy_deadband = 0.5
         self.max_xy_force = 25.0
-        self.k_xy_p = 0.3
-        self.k_xy_d = 0.4
-        self.k_xy_i = 0.002
+        self.k_xy_p = 0.5
+        self.k_xy_d = 0.65
+        self.k_xy_i = 0.0375
 
         # Altitude PD constants (1 ,4):
         self.kz_p = 1.0
