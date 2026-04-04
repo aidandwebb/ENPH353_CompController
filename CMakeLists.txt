@@ -205,6 +205,6 @@ include_directories(
 
 catkin_install_python(
   PROGRAMS
-    src/control_the_masses.py
+    src/Top_Drone_Control.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

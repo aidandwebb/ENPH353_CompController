@@ -10,7 +10,6 @@ from sensor_msgs.msg import Imu, Image
 
 from cv_bridge import CvBridge
 
-
 class DroneController:
     def __init__(self):
         rospy.init_node("drone_controller")
@@ -38,7 +37,7 @@ class DroneController:
         self.last_depth_time = None
 
         # We want to fly to the hover height:
-        self.map_height = 5.5
+        self.map_height = 11.9
 
         # XY PID constants
         self.x_error = 0.0
@@ -87,7 +86,7 @@ class DroneController:
 
         hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
-        mask = cv2.bitwise_not(cv2.bitwise_and(cv2.inRange(h, 0, 10), cv2.inRange(v, 170, 180)))
+        mask = cv2.bitwise_not(cv2.bitwise_and(cv2.inRange(h, 0, 1), cv2.inRange(v, 175, 180)))
 
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
