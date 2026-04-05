@@ -7,6 +7,7 @@ import cv2
 
 from geometry_msgs.msg import Wrench, Twist
 from sensor_msgs.msg import Imu, Image
+from std_msgs.msg import String
 
 from cv_bridge import CvBridge
 
@@ -19,6 +20,7 @@ class DroneController:
         rospy.Subscriber("/D1/imu", Imu, self.imu_cb, queue_size=1)
         rospy.Subscriber("/D1/down_cam/depth/image_raw", Image, self.depth_cb, queue_size=1)
         rospy.Subscriber("/D1/down_cam/image_raw", Image, self.image_cb)
+        self.score_tracker = rospy.Publisher('/score_tracker', String, queue_size=1)
 
         self.bridge = CvBridge()
 
@@ -208,6 +210,10 @@ class DroneController:
         self.last_depth_time = now
 
     def run(self):
+        rospy.sleep(2)
+        self.score_tracker.publish("WEIDAN,1234,0,NA")
+        rospy.sleep(1)
+
         last_time = rospy.Time.now()
 
         while not rospy.is_shutdown():
@@ -278,13 +284,6 @@ class DroneController:
                 thrust_z += z_correction
 
             w.force.z = float(thrust_z)
-
-            rospy.loginfo_throttle(
-                0.2,
-                f"alt={self.altitude} xerror={-self.y_error} y_error={self.x_error:.2f} angle={self.yaw:.3f}"
-                f"F=({w.force.x:.1f}, {w.force.y:.1f}, {w.force.z:.1f})"
-            )
-
             self.pub.publish(w)
             self.rate.sleep()
 

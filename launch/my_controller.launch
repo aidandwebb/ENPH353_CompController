@@ -1,0 +1,8 @@
+<launch>
+  <node pkg="my_controller"
+        type="MotherControl.py"
+        name="competition_start"
+        output="screen">
+    <param name="startup_delay" value="24.0" />
+  </node>
+</launch>
